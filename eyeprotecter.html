@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>안약 루틴 매니저</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-sub: #7f8c8d;
+            --border: #ecf0f1;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 450px;
+            min-height: 90vh;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            box-sizing: border-box;
+            position: relative;
+        }
+        h1 {
+            font-size: 20px;
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-main);
+            padding: 5px;
+        }
+        /* Settings View */
+        #settings-view { display: none; }
+        .setting-group { margin-bottom: 20px; }
+        .setting-group label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; }
+        .setting-group input[type="number"], .setting-group select {
+            width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; box-sizing: border-box;
+        }
+        .drop-item-setup { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .drop-item-setup input[type="text"] { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+        .drop-item-setup input[type="color"] { width: 40px; height: 40px; border: none; border-radius: 8px; padding: 0; cursor: pointer; }
+        .btn-remove-drop { background: #ff7675; color: white; border: none; border-radius: 8px; padding: 10px 12px; font-weight: bold; }
+        .btn-add-drop { width: 100%; padding: 10px; background: #dfe6e9; border: none; border-radius: 8px; font-weight: bold; color: var(--text-main); margin-bottom: 10px;}
+        .btn-save { width: 100%; padding: 15px; background: #0984e3; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; margin-top: 20px; }
+        
+        /* Main View */
+        .status-card { background: #e8f4f8; padding: 20px; border-radius: 15px; margin-bottom: 25px; text-align: center; }
+        .status-card h2 { margin: 0 0 10px 0; font-size: 15px; color: #2980b9; }
+        .status-card p { margin: 0; font-size: 18px; font-weight: bold; color: #d63031; line-height: 1.4; }
+        
+        .action-buttons { display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px; }
+        .drop-btn { padding: 18px; font-size: 16px; font-weight: bold; border: none; border-radius: 15px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.1s; }
+        .drop-btn:active { transform: scale(0.98); }
+
+        /* History View */
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        .history-header h3 { margin: 0; font-size: 16px; }
+        .history-header input[type="date"] { border: 1px solid var(--border); padding: 5px 10px; border-radius: 6px; font-family: inherit; font-size: 14px; background: white; }
+        .log-list { list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto; }
+        .log-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 10px; border-bottom: 1px solid var(--border); }
+        .log-time { color: var(--text-sub); font-size: 14px; }
+        .log-badge { padding: 6px 12px; border-radius: 20px; color: white; font-size: 13px; font-weight: bold; }
+        .empty-log { text-align: center; color: var(--text-sub); padding: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="main-view">
+        <h1>
+            <span>💧 안약 투여 기록</span>
+            <button class="icon-btn" onclick="toggleView('settings')">⚙️</button>
+        </h1>
+        
+        <div class="status-card" id="next-status-card">
+            <h2>다음 투여 예정</h2>
+            <p id="next-info">설정을 먼저 완료해주세요.</p>
+        </div>
+
+        <div class="action-buttons" id="action-buttons">
+            </div>
+
+        <div class="history">
+            <div class="history-header">
+                <h3>날짜별 기록</h3>
+                <input type="date" id="history-date" onchange="renderHistory()">
+            </div>
+            <ul class="log-list" id="log-list"></ul>
+        </div>
+    </div>
+
+    <div id="settings-view">
+        <h1>
+            <span>⚙️ 루틴 설정</span>
+            <button class="icon-btn" onclick="toggleView('main')">✕</button>
+        </h1>
+        
+        <div class="setting-group">
+            <label>투여 간격 (시간)</label>
+            <input type="number" id="set-interval" min="1" max="24" value="3">
+        </div>
+
+        <div class="setting-group">
+            <label>사용 방식</label>
+            <select id="set-mode">
+                <option value="alternate">교대 투여 (돌아가면서)</option>
+                <option value="all">동시 투여 (한 번에 다 넣기)</option>
+            </select>
+        </div>
+
+        <div class="setting-group">
+            <label>안약 종류 등록</label>
+            <div id="drop-setup-list"></div>
+            <button class="btn-add-drop" onclick="addDropSetupField()">+ 안약 추가하기</button>
+        </div>
+
+        <button class="btn-save" onclick="saveSettings()">설정 저장하기</button>
+    </div>
+</div>
+
+<script>
+    // 상태 관리
+    let config = JSON.parse(localStorage.getItem('eyeDropConfig')) || {
+        interval: 3,
+        mode: 'alternate',
+        drops: [
+            { id: 'drop_1', name: '안약 A', color: '#3498db' },
+            { id: 'drop_2', name: '안약 B', color: '#2ecc71' }
+        ]
+    };
+    let logs = JSON.parse(localStorage.getItem('eyeDropHistory')) || [];
+
+    // 유틸리티 함수: 날짜 포맷 (YYYY-MM-DD)
+    function getLocalDateString(date) {
+        const d = new Date(date);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0];
+    }
+    
+    // 유틸리티 함수: 시간 포맷 (오전/오후 HH:MM)
+    function formatTime(timestamp) {
+        const d = new Date(timestamp);
+        let h = d.getHours();
+        let m = d.getMinutes();
+        const ampm = h >= 12 ? '오후' : '오전';
+        h = h % 12 || 12;
+        m = m < 10 ? '0'+m : m;
+        return `${ampm} ${h}:${m}`;
+    }
+
+    // 화면 전환
+    function toggleView(view) {
+        if (view === 'settings') {
+            document.getElementById('main-view').style.display = 'none';
+            document.getElementById('settings-view').style.display = 'block';
+            loadSettingsToForm();
+        } else {
+            document.getElementById('settings-view').style.display = 'none';
+            document.getElementById('main-view').style.display = 'block';
+            initMainView();
+        }
+    }
+
+    // --- 설정 화면 로직 ---
+    function loadSettingsToForm() {
+        document.getElementById('set-interval').value = config.interval;
+        document.getElementById('set-mode').value = config.mode;
+        
+        const listEl = document.getElementById('drop-setup-list');
+        listEl.innerHTML = '';
+        config.drops.forEach(drop => addDropSetupField(drop));
+    }
+
+    function addDropSetupField(drop = { id: 'drop_'+Date.now(), name: '', color: '#0984e3' }) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'drop-item-setup';
+        wrapper.dataset.id = drop.id;
+        wrapper.innerHTML = `
+            <input type="color" class="drop-color" value="${drop.color}">
+            <input type="text" class="drop-name" placeholder="안약 이름 입력" value="${drop.name}">
+            <button class="btn-remove-drop" onclick="this.parentElement.remove()">삭제</button>
+        `;
+        document.getElementById('drop-setup-list').appendChild(wrapper);
+    }
+
+    function saveSettings() {
+        const interval = document.getElementById('set-interval').value;
+        const mode = document.getElementById('set-mode').value;
+        const dropEls = document.querySelectorAll('.drop-item-setup');
+        
+        const newDrops = [];
+        dropEls.forEach(el => {
+            const name = el.querySelector('.drop-name').value.trim();
+            const color = el.querySelector('.drop-color').value;
+            if(name) newDrops.push({ id: el.dataset.id, name, color });
+        });
+
+        if (newDrops.length === 0) return alert("최소 1개 이상의 안약을 등록해주세요.");
+
+        config = { interval: Number(interval), mode, drops: newDrops };
+        localStorage.setItem('eyeDropConfig', JSON.stringify(config));
+        
+        toggleView('main');
+    }
+
+    // --- 메인 화면 로직 ---
+    function initMainView() {
+        if (config.drops.length === 0) {
+            toggleView('settings');
+            return;
+        }
+        
+        // 날짜 초기화 (오늘)
+        const datePicker = document.getElementById('history-date');
+        if (!datePicker.value) {
+            datePicker.value = getLocalDateString(new Date());
+        }
+
+        renderButtons();
+        updateNextSchedule();
+        renderHistory();
+    }
+
+    function renderButtons() {
+        const container = document.getElementById('action-buttons');
+        container.innerHTML = '';
+        config.drops.forEach(drop => {
+            const btn = document.createElement('button');
+            btn.className = 'drop-btn';
+            btn.style.backgroundColor = drop.color;
+            btn.innerText = `${drop.name} 넣음`;
+            btn.onclick = () => addLog(drop.id);
+            container.appendChild(btn);
+        });
+    }
+
+    function addLog(dropId) {
+        const newLog = {
+            id: Date.now(),
+            dropId: dropId,
+            timestamp: new Date().getTime()
+        };
+        logs.unshift(newLog); // 최신순 저장
+        localStorage.setItem('eyeDropHistory', JSON.stringify(logs));
+        
+        // 오늘 날짜로 캘린더 이동 후 렌더링
+        document.getElementById('history-date').value = getLocalDateString(new Date());
+        updateNextSchedule();
+        renderHistory();
+    }
+
+    function updateNextSchedule() {
+        const infoEl = document.getElementById('next-info');
+        if (logs.length === 0) {
+            infoEl.innerHTML = "지금 첫 안약을 투여해주세요!";
+            infoEl.style.color = "var(--text-main)";
+            return;
+        }
+
+        const lastLog = logs[0]; // 가장 최근 기록
+        const nextTime = new Date(lastLog.timestamp + config.interval * 60 * 60 * 1000);
+        let nextText = "";
+
+        if (config.mode === 'all') {
+            nextText = "모든 안약 투여";
+        } else {
+            // 교대 투여 로직
+            const currentIndex = config.drops.findIndex(d => d.id === lastLog.dropId);
+            const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % config.drops.length;
+            const nextDrop = config.drops[nextIndex];
+            nextText = `<span style="color:${nextDrop.color}">[${nextDrop.name}]</span> 넣을 차례`;
+        }
+
+        const todayStr = getLocalDateString(new Date());
+        const nextDateStr = getLocalDateString(nextTime);
+        const datePrefix = todayStr === nextDateStr ? "오늘" : "내일";
+
+        infoEl.innerHTML = `${datePrefix} ${formatTime(nextTime)}<br>${nextText}`;
+        infoEl.style.color = "#d63031";
+    }
+
+    function renderHistory() {
+        const selectedDate = document.getElementById('history-date').value;
+        const listEl = document.getElementById('log-list');
+        listEl.innerHTML = '';
+
+        // 선택된 날짜의 기록만 필터링
+        const filteredLogs = logs.filter(log => getLocalDateString(log.timestamp) === selectedDate);
+
+        if (filteredLogs.length === 0) {
+            listEl.innerHTML = `<li class="empty-log">이 날짜의 기록이 없습니다.</li>`;
+            return;
+        }
+
+        filteredLogs.forEach(log => {
+            const dropInfo = config.drops.find(d => d.id === log.dropId) || { name: '삭제된 안약', color: '#95a5a6' };
+            
+            const li = document.createElement('li');
+            li.className = 'log-item';
+            li.innerHTML = `
+                <span class="log-time">${formatTime(log.timestamp)}</span>
+                <span class="log-badge" style="background-color: ${dropInfo.color}">${dropInfo.name}</span>
+            `;
+            listEl.appendChild(li);
+        });
+    }
+
+    // 앱 시작
+    initMainView();
+</script>
+
+</body>
+</html>
